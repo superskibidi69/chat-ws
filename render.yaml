@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: chat-ws
+    env: python
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python3 main.py
+    envVars:
+      - key: PORT
+        fromDatabase: false
+        value: 8765 
