@@ -1,7 +1,7 @@
 import asyncio, websockets, json, os
 
 PORT = int(os.environ.get("PORT", 8765))
-clients = {}  # map websocket -> username
+clients = {}  # websocket -> username
 
 async def broadcast(data):
     dead = []
@@ -32,16 +32,20 @@ async def handler(websocket):
         username = clients.pop(websocket, "anon")
         await broadcast({"system": f"{username} left the chat"})
 
-# this handles non-WebSocket requests (like HEAD from Render)
+# Render sends HEAD/GET to check health; catch all non-WS requests here
 async def http_handler(path, request_headers):
-    return 200, [], b"api ok"
+    # only let websocket upgrade continue
+    if request_headers.get("Upgrade", "").lower() == "websocket":
+        return None  # continue normal ws handshake
+    # otherwise respond to HEAD/GET with simple 200
+    return 200, [("Content-Type", "text/plain")], b"ok"
 
 async def main():
     async with websockets.serve(
         handler, "0.0.0.0", PORT, process_request=http_handler
     ):
         print(f"server running ws://0.0.0.0:{PORT}")
-        await asyncio.Future()
+        await asyncio.Future()  # run forever
 
 if __name__ == "__main__":
     asyncio.run(main())
