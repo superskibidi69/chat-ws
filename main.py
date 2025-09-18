@@ -1,4 +1,5 @@
 import asyncio, websockets, json, os
+
 PORT = int(os.environ.get("PORT", 8765))
 clients = {}  # map websocket -> username
 
@@ -14,16 +15,13 @@ async def broadcast(data):
 
 async def handler(websocket):
     try:
-        # wait for first message to set username
         raw = await websocket.recv()
         hello = json.loads(raw)
-        username = hello.get("user","anon")
+        username = hello.get("user", "anon")
         clients[websocket] = username
 
-        # announce join
         await broadcast({"system": f"{username} joined the chat"})
 
-        # normal loop
         async for raw in websocket:
             data = json.loads(raw)
             await broadcast(data)
@@ -34,9 +32,15 @@ async def handler(websocket):
         username = clients.pop(websocket, "anon")
         await broadcast({"system": f"{username} left the chat"})
 
+# this handles non-WebSocket requests (like HEAD from Render)
+async def http_handler(path, request_headers):
+    return 200, [], b"api ok"
+
 async def main():
-    async with websockets.serve(handler, "0.0.0.0", PORT):
-        print("server running ws://localhost:8765")
+    async with websockets.serve(
+        handler, "0.0.0.0", PORT, process_request=http_handler
+    ):
+        print(f"server running ws://0.0.0.0:{PORT}")
         await asyncio.Future()
 
 if __name__ == "__main__":
