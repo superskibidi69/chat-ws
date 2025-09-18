@@ -1,7 +1,5 @@
-import asyncio
-import websockets
-import json
-
+import asyncio, websockets, json, os
+PORT = int(os.environ.get("PORT", 8765))
 clients = {}  # map websocket -> username
 
 async def broadcast(data):
@@ -37,7 +35,7 @@ async def handler(websocket):
         await broadcast({"system": f"{username} left the chat"})
 
 async def main():
-    async with websockets.serve(handler, "localhost", 8765):
+    async with websockets.serve(handler, "0.0.0.0", PORT):
         print("server running ws://localhost:8765")
         await asyncio.Future()
 
