@@ -1,44 +1,46 @@
 import asyncio, websockets, json, os
 
 PORT = int(os.environ.get("PORT", 8765))
-clients = {}  # websocket -> username
+rooms = {"chat": {}, "newroom": {}}  # websocket -> username per room
 
-async def broadcast(data):
+async def broadcast(room, data):
     dead = []
-    for ws in list(clients.keys()):
+    for ws in list(rooms[room].keys()):
         try:
             await ws.send(json.dumps(data))
-        except Exception:
+        except:
             dead.append(ws)
     for ws in dead:
-        clients.pop(ws, None)
+        rooms[room].pop(ws, None)
 
-async def handler(websocket):
+async def handler(websocket, path):
+    if path not in rooms:
+        rooms[path] = {}
+    room = path
     try:
         raw = await websocket.recv()
         hello = json.loads(raw)
         username = hello.get("user", "anon")
-        clients[websocket] = username
+        rooms[room][websocket] = username
 
-        await broadcast({"system": f"{username} joined the chat"})
+        await broadcast(room, {"system": f"{username} joined {room}"})
 
         async for raw in websocket:
             data = json.loads(raw)
-            await broadcast(data)
+            await broadcast(room, data)
 
     except Exception as e:
         print("Error:", e)
     finally:
-        username = clients.pop(websocket, "anon")
-        await broadcast({"system": f"{username} left the chat"})
+        username = rooms[room].pop(websocket, "anon")
+        await broadcast(room, {"system": f"{username} left {room}"})
 
-# Render sends HEAD/GET to check health; catch all non-WS requests here
 async def http_handler(path, request_headers):
+    # health checks etc
     if request_headers.get("Upgrade", "").lower() == "websocket":
-        return None  # normal WS handshake
+        return None
     if request_headers.get("Method", "").upper() in ["GET", "HEAD"]:
         return 200, [("Content-Type", "text/plain")], b"ok"
-    # reject anything else
     return 400, [("Content-Type", "text/plain")], b"bad request"
 
 async def main():
