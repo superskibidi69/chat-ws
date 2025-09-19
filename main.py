@@ -34,11 +34,12 @@ async def handler(websocket):
 
 # Render sends HEAD/GET to check health; catch all non-WS requests here
 async def http_handler(path, request_headers):
-    # only let websocket upgrade continue
     if request_headers.get("Upgrade", "").lower() == "websocket":
-        return None  # continue normal ws handshake
-    # otherwise respond to HEAD/GET with simple 200
-    return 200, [("Content-Type", "text/plain")], b"ok"
+        return None  # normal WS handshake
+    if request_headers.get("Method", "").upper() in ["GET", "HEAD"]:
+        return 200, [("Content-Type", "text/plain")], b"ok"
+    # reject anything else
+    return 400, [("Content-Type", "text/plain")], b"bad request"
 
 async def main():
     async with websockets.serve(
